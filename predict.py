@@ -20,35 +20,52 @@ def getWindows(gridSize,x_begin,y_begin,x_end,y_end):
     windows=[]
     x_start= x_begin
     y_start= y_begin
+
     for gs in gridSize:
-        for r in range(y_start,y_end,gs):
-            for c in range(x_start,x_end,gs):
+        # gridHeight = int((y_end-y_begin)/gs)
+        # gridWidth  = int((x_end-x_begin)/gs)
+        for r in range(y_start,y_end-gs,int(gs/2)):
+            for c in range(x_start,x_end-gs,int(gs/2)):
                 window = []
                 window.append(c)
                 window.append(r)
-                window.append(gs)
+                window.append(c + gs)
+                window.append(r + gs)
                 windows.append(window)
-        y_start = y_begin
-        x_start = x_begin
+
     return windows
 
 
 def selectWindows(image,windows,graph,sess):
     filteredWindows=[]
+    confidences = []
     h,w,c=image.shape
     start = time.time()
     for window in windows:
-        crop_img = image[window[1]:window[1] + window[2], window[0]:window[0] + window[2]]
-        if(predict(crop_img,sess,graph)):
+        crop_img = image[window[1]:window[3], window[0]:window[2]]
+        isVehicle, confidence = predict(crop_img,sess,graph)
+        if(isVehicle):
             filteredWindows.append(window)
+            confidences.append(confidence)
+
     end = time.time()
-    print("Time to predict:",end-start)
+    # print("Time to predict:",end-start," With confidence:",confidence)
+    if len(confidences)>0:
+        print("Detected", len(filteredWindows), "boxes with confidence:",np.average(np.array(confidences)))
     return filteredWindows
 
 def drawWindows(image,windows):
     resultImage=image
+    # if len(windows)>1:
+    #     bigWindowX_start=min([x[0] for x in windows ])
+    #     bigWindowY_start=min([x[1] for x in windows])
+    #     bigWindowX_end = max([x[0] + x[2] for x in windows])
+    #     bigWindowY_end = max([x[0] + x[2] for x in windows])
+    #     cv2.rectangle(resultImage, (bigWindowX_start, bigWindowY_start), (bigWindowX_end, bigWindowY_end), (255, 0, 0), 3)
+
     for window in windows:
-        cv2.rectangle(resultImage, (window[0], window[1]), (window[0] + window[2], window[1] + window[2]), (0, 0, 255), 2)
+        cv2.rectangle(resultImage, (window[0], window[1]), (window[2], window[3]), (0, 0, 255), 2)
+
     return resultImage
 
 
@@ -92,10 +109,10 @@ def predict(image,sess,graph):
     result=sess.run(y_pred, feed_dict=feed_dict_testing)
     # result is of this format [probabiliy_of_rose probability_of_sunflower]
 
-    if result[0][0]>0.95:
-        return True
+    if result[0][0]>result[0][1]:
+        return True,result[0][0]
     else:
-        return False
+        return False,result[0][1]
 #
 # counter=0
 # sess,saver,graph = getTFSession()
@@ -133,9 +150,9 @@ def videoReading(videoFileName):
 
             # Display the resulting frame
 
-            frame = cv2.resize(frame, (1024, 576), 0, 0, cv2.INTER_LINEAR)
+            frame = cv2.resize(frame, (900, 506), 0, 0, cv2.INTER_LINEAR)
             h,w,c = frame.shape
-            windows = getWindows([64], 100, 250,800,575)
+            windows = getWindows([64,128], 300, 200,800,500)
             # processedFrame = drawWindows(frame, windows)
             selectedWindows = selectWindows(frame,windows,graph,sess)
             processedFrame= drawWindows(frame,selectedWindows)
@@ -156,4 +173,4 @@ def videoReading(videoFileName):
     cv2.destroyAllWindows()
 
 
-videoReading('test/dashcam_video.mp4')
+videoReading('test/video1.mp4')

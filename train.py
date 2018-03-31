@@ -41,13 +41,13 @@ y_true = tf.placeholder(tf.float32, shape=[None, num_classes], name='y_true')
 y_true_cls = tf.argmax(y_true, dimension=1)
 
 ##Network graph params
-filter_size_conv1 = 4
+filter_size_conv1 = 3
 num_filters_conv1 = 8
 
-filter_size_conv2 = 4
+filter_size_conv2 = 3
 num_filters_conv2 = 16
 
-filter_size_conv3 = 4
+filter_size_conv3 = 3
 num_filters_conv3 = 32
 
 fc_layer_size = 16
@@ -134,16 +134,21 @@ layer_conv2 = create_convolutional_layer(input=layer_conv1,
 #                                          num_filters=num_filters_conv3)
 
 layer_flat = create_flatten_layer(layer_conv2)
-denseLayer = tf.layers.dense(inputs=layer_flat,units=4096,activation=tf.nn.relu)
+# layer_flat = create_flatten_layer(layer_conv2)
 
-dropout1 = tf.layers.dropout(inputs=denseLayer,rate = 0.5, training=tf.estimator.ModeKeys.TRAIN)
-layer_fc1 = create_fc_layer(input=layer_flat,
+dense1 = tf.layers.dense(inputs=layer_flat, units=layer_flat.get_shape()[1:4].num_elements(), activation=tf.nn.relu)
+dropout1 = tf.layers.dropout(
+      inputs=dense1, rate=0.5)
+
+
+layer_fc1 = create_fc_layer(input=dropout1,
                             num_inputs=layer_flat.get_shape()[1:4].num_elements(),
                             num_outputs=fc_layer_size,
                             use_relu=True)
 
+dropout2 = tf.layers.dropout(
+      inputs=layer_fc1, rate=0.5)
 
-dropout2 = tf.layers.dropout(inputs=layer_fc1,rate = 0.5, training=tf.estimator.ModeKeys.TRAIN)
 layer_fc2 = create_fc_layer(input=dropout2,
                             num_inputs=fc_layer_size,
                             num_outputs=num_classes,
@@ -158,6 +163,8 @@ cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=layer_fc2,
 cost = tf.reduce_mean(cross_entropy)
 optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(cost)
 correct_prediction = tf.equal(y_pred_cls, y_true_cls)
+
+
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 session.run(tf.global_variables_initializer())
@@ -201,4 +208,4 @@ def train(num_iteration):
     total_iterations += num_iteration
 
 
-train(num_iteration=350)
+train(num_iteration=500)
